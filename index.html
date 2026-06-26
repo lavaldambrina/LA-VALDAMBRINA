@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Wine Delivery: La Valdambrina Editions</title>
+    <style>
+        body {
+            background-color: #222;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .info {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #game-container {
+            position: relative;
+            width: 500px;
+            height: 600px;
+        }
+        canvas {
+            border: 4px solid #e67e22; /* Bordo canvas arancione */
+            background-color: #2c3e50;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
+            display: block;
+        }
+        /* Schermate overlay HTML */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 500px;
+            height: 600px;
+            background-color: rgba(20, 20, 20, 0.95);
+            box-sizing: border-box;
+            border: 4px solid #e67e22; /* Bordo del rettangolo arancione */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .overlay-screen h2 {
+            color: #e67e22; /* Testi secondari in arancione */
+            margin-top: 0;
+        }
+        .main-title {
+            color: #e67e22; /* Scritta LA VALDAMBRINA grande e arancione */
+            font-size: 36px;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+            letter-spacing: 2px;
+        }
+        .highlight-text {
+            color: #e67e22; /* Inserisci il tuo nome in arancione */
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #e67e22; /* Bordo input arancione */
+            background-color: #333;
+            color: white;
+            font-family: monospace;
+            text-align: center;
+            margin-bottom: 15px;
+            width: 250px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #e67e22; /* Pulsante arancione */
+            color: #222;
+            border: none;
+            font-family: monospace;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #d35400; /* Hover arancione scuro */
+        }
+        /* Tabella Classifica */
+        .leaderboard {
+            margin-top: 25px;
+            width: 80%;
+            border-collapse: collapse;
+        }
+        .leaderboard th {
+            color: #e67e22; /* Intestazioni tabella arancione */
+            border-bottom: 2px solid #e67e22;
+            padding-bottom: 5px;
+        }
+        .leaderboard td {
+            padding: 6px 10px;
+            text-align: center;
+        }
+        .leaderboard tr:nth-child(even) {
+            background-color: rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="info">
+        <h1>WINE DELIVERY: LA VALDAMBRINA EDITIONS</h1>
+        <p><b>FRECCE DESTRA/SINISTRA</b> per sterzare nello sterrato | <b>BARRA SPAZIATRICE</b> per lanciare il vino</p>
+        <p>Rifornisci i clienti evitando le buche e i vecchi chiodi forgiati! Raccogli le casse per non restare senza scorte.</p>
+    </div>
+    
+    <div id="game-container">
+        <!-- Schermata di Start Personaggio -->
+        <div id="start-screen" class="overlay-screen">
+            <p class="main-title">LA VALDAMBRINA</p>
+            <p class="highlight-text">INSERISCI IL TUO NOME PER INIZIARE</p>
+            <input type="text" id="player-name-input" maxlength="12" placeholder="NOME..." value="GUEST">
+            <button id="start-btn">INIZIA CONSEGNA</button>
+            
+            <table class="leaderboard">
+                <thead>
+                    <tr>
+                        <th>POS</th>
+                        <th>PILOTA</th>
+                        <th>PUNTI</th>
+                    </tr>
+                </thead>
+                <tbody id="start-leaderboard-body">
+                    <!-- Generata via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Schermata di Game Over e Classifica finale -->
+        <div id="gameover-screen" class="overlay-screen" style="display: none;">
+            <h2 style="color: #e74c3c; font-size: 36px;">GAME OVER</h2>
+            <p id="final-score-text"></p>
+            
+            <h3>CLASSIFICA GENERALE</h3>
+            <table class="leaderboard">
+                <thead>
+                    <tr>
+                        <th>POS</th>
+                        <th>PILOTA</th>
+                        <th>PUNTI</th>
+                    </tr>
+                </thead>
+                <tbody id="end-leaderboard-body">
+                    <!-- Generata via JS -->
+                </tbody>
+            </table>
+            <br>
+            <button id="restart-btn">RICOMINCIA LA CORSA</button>
+        </div>
+
+        <canvas id="paperboyCanvas" width="500" height="600"></canvas>
+    </div>
+
+<script>
+const canvas = document.getElementById("paperboyCanvas");
+const ctx = canvas.getContext("2d");
+
+// Elementi DOM Interfaccia Esterna
+const startScreen = document.getElementById("start-screen");
+const gameoverScreen = document.getElementById("gameover-screen");
+const playerNameInput = document.getElementById("player-name-input");
+const startBtn = document.getElementById("start-btn");
+const restartBtn = document.getElementById("restart-btn");
+const finalScoreText = document.getElementById("final-score-text");
+const startLeaderboardBody = document.getElementById("start-leaderboard-body");
+const endLeaderboardBody = document.getElementById("end-leaderboard-body");
+
+// Variabili di stato globali
+let gameActive = false;
+let currentPlayerName = "GUEST";
+
+// Configurazione Giocatore
+let player = {
+    x: canvas.width / 2 - 15,
+    y: canvas.height - 120,
+    width: 30,
+    height: 50,
+    speed: 5,
+    score: 0,
+    lives: 3,
+    packages: 10 
+};
+
+// Sistema di Livelli e Difficoltà
+let currentLevel = 1;
+let scrollSpeed = 3;
+let obstacleSpawnChance = 0.02; 
+const levelThresholds = [0, 1000, 2500, 4500, 7000]; 
+
+let levelUpTimer = 0; 
+let levelUpScale = 1;
+
+const roadLeft = 100;
+const roadRight = 400;
+let backgroundOffset = 0;
+
+let obstacles = [];      
+let customers = [];      
+let thrownPackages = []; 
+let ammoPickups = [];    
+let trees = [];          
+let roadTexts = [];      
+
+// Gestione Input Tastiera
+const keys = {};
+window.addEventListener("keydown", e => {
+    if (!gameActive) return; 
+    keys[e.key] = true;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+        e.preventDefault(); 
+    }
+    if ((e.key === " " || e.key === "Spacebar") && player.packages > 0 && player.lives > 0) {
+        shootPackage();
+    }
+});
+window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+// Gestione Classifica in LocalStorage
+function getLeaderboard() {
+    let data = localStorage.getItem("valdambrina_leaderboard");
+    return data ? JSON.parse(data) : [];
+}
+
+function saveScore(name, score) {
+    let leaderboard = getLeaderboard();
+    leaderboard.push({ name: name.toUpperCase(), score: score });
+    leaderboard.sort((a, b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0, 5);
+    localStorage.setItem("valdambrina_leaderboard", JSON.stringify(leaderboard));
+}
+
+function updateLeaderboardTables() {
+    let leaderboard = getLeaderboard();
+    let htmlContent = "";
+    
+    if (leaderboard.length === 0) {
+        htmlContent = "<tr><td colspan='3'>Nessun record registrato</td></tr>";
+    } else {
+        leaderboard.forEach((entry, index) => {
+            htmlContent += `<tr>
+                <td><b>${index + 1}°</b></td>
+                <td>${entry.name}</td>
+                <td>${entry.score}</td>
+            </tr>`;
+        });
+    }
+    startLeaderboardBody.innerHTML = htmlContent;
+    endLeaderboardBody.innerHTML = htmlContent;
+}
+
+// Inizializzazione Partita
+function initGame() {
+    player.x = canvas.width / 2 - 15;
+    player.y = canvas.height - 120;
+    player.score = 0;
+    player.lives = 3;
+    player.packages = 10;
+    currentLevel = 1;
+    scrollSpeed = 3;
+    obstacleSpawnChance = 0.02;
+    player.speed = 5;
+    
+    obstacles = [];      
+    customers = [];      
+    thrownPackages = []; 
+    ammoPickups = [];    
+    roadTexts = [];
+    
+    trees = [];
+    for (let i = 0; i < 5; i++) {
+        let side = Math.random() > 0.5 ? "left" : "right";
+        let treeX = (side === "left") ? Math.random() * (roadLeft - 40) : roadRight + 20 + Math.random() * (canvas.width - roadRight - 40);
+        trees.push({ x: treeX, y: Math.random() * canvas.height, radius: 20 + Math.random() * 10, trunkWidth: 8, trunkHeight: 15 });
+    }
+}
+
+// Ascoltatori Eventi Pulsanti Interfaccia
+startBtn.addEventListener("click", () => {
+    let name = playerNameInput.value.trim();
+    currentPlayerName = name ? name : "GUEST";
+    startScreen.style.display = "none";
+    initGame();
+    gameActive = true;
+});
+
+restartBtn.addEventListener("click", () => {
+    gameoverScreen.style.display = "none";
+    initGame();
+    gameActive = true;
+});
+
+updateLeaderboardTables();
+
+// Funzioni logiche del Gameplay
+function shootPackage() {
+    player.packages--;
+    let direction = (player.x < canvas.width / 2) ? -1 : 1;
+    thrownPackages.push({
+        x: player.x + player.width / 2,
+        y: player.y + 10,
+        vx: direction * 7,
+        vy: -2,
+        width: 10,
+        height: 22,
+        active: true
+    });
+}
+
+function checkLevelUp() {
+    let targetLevel = currentLevel;
+    for (let i = 0; i < levelThresholds.length; i++) {
+        if (player.score >= levelThresholds[i]) {
+            targetLevel = i + 1;
+        }
+    }
+    if (targetLevel > currentLevel) {
+        currentLevel = targetLevel;
+        scrollSpeed = 3 + (currentLevel - 1) * 1.2;
+        obstacleSpawnChance = 0.02 + (currentLevel - 1) * 0.008;
+        player.speed = 5 + (currentLevel - 1) * 0.5;
+        levelUpTimer = 90;
+        levelUpScale = 0.5; 
+    }
+}
+
+function spawnObstacle() {
+    if (Math.random() < obstacleSpawnChance && obstacles.length < (3 + currentLevel)) {
+        let type = Math.random() > 0.5 ? "buco" : "chiodi";
+        obstacles.push({
+            x: roadLeft + Math.random() * (roadRight - roadLeft - 38),
+            y: -60,
+            width: type === "buco" ? 42 : 32, 
+            height: type === "buco" ? 30 : 26,
+            type: type,
+            seed: Math.random()
+        });
+    }
+}
+
+function spawnRoadText() {
+    if (Math.random() < 0.006 && roadTexts.length < 2) {
+        roadTexts.push({ x: (roadLeft + roadRight) / 2, y: -40, text: "LA VALDAMBRINA" });
+    }
+}
+
+function spawnAmmoPickup() {
+    if (Math.random() < 0.01 && ammoPickups.length < 2) {
+        ammoPickups.push({ x: roadLeft + Math.random() * (roadRight - roadLeft - 25), y: -50, width: 24, height: 24 });
+    }
+}
+
+function spawnCustomer() {
+    if (Math.random() < 0.015 && customers.length < 4) {
+        let side = Math.random() > 0.5 ? "left" : "right";
+        const hairColors = ["#4a2c11", "#e5c158", "#111111", "#a0522d"];
+        customers.push({
+            x: side === "left" ? roadLeft - 35 : roadRight + 15,
+            y: -60,
+            width: 20,
+            height: 42, 
+            side: side,
+            hit: false,
+            jumpOffset: 0, 
+            clothColor: "hsl(" + (Math.random() * 360) + ", 75%, 55%)",
+            hairColor: hairColors[Math.floor(Math.random() * hairColors.length)]
+        });
+    }
+}
+
+function spawnTree() {
+    if (Math.random() < 0.03 && trees.length < 10) {
+        let side = Math.random() > 0.5 ? "left" : "right";
+        let treeX = (side === "left") ? Math.random() * (roadLeft - 50) : roadRight + 20 + Math.random() * (canvas.width - roadRight - 50);
+        trees.push({ x: treeX, y: -80, radius: 20 + Math.random() * 10, trunkWidth: 8, trunkHeight: 15 });
+    }
+}
+
+function update() {
+    if (!gameActive) return;
+
+    if (player.lives <= 0) {
+        gameActive = false;
+        saveScore(currentPlayerName, player.score);
+        updateLeaderboardTables();
+        finalScoreText.innerHTML = `Pilota: <b>${currentPlayerName.toUpperCase()}</b> | Punteggio Totale: <b>${player.score}</b>`;
+        gameoverScreen.style.display = "flex";
+        return;
+    }
+
+    if (keys["ArrowLeft"] && player.x > roadLeft) player.x -= player.speed;
+    if (keys["ArrowRight"] && player.x < roadRight - player.width) player.x += player.speed;
+
+    backgroundOffset = (backgroundOffset + scrollSpeed) % 40;
+    checkLevelUp();
+
+    if (levelUpTimer > 0) {
+        levelUpTimer--;
+        if (levelUpScale < 1) levelUpScale += 0.04; 
+    }
+
+    spawnTree();
+    for (let i = trees.length - 1; i >= 0; i--) {
+        trees[i].y += scrollSpeed;
+        if (trees[i].y > canvas.height + 50) trees.splice(i, 1);
+    }
+
+    spawnRoadText();
+    for (let i = roadTexts.length - 1; i >= 0; i--) {
+        roadTexts[i].y += scrollSpeed;
+        if (roadTexts[i].y > canvas.height + 40) roadTexts.splice(i, 1);
+    }
+
+    spawnObstacle();
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].y += scrollSpeed;
+        if (player.x < obstacles[i].x + obstacles[i].width &&
+            player.x + player.width > obstacles[i].x &&
+            player.y < obstacles[i].y + obstacles[i].height &&
+            player.y + player.height > obstacles[i].y) {
+                player.lives--;
+                obstacles.splice(i, 1);
+                continue;
+        }
+        if (obstacles[i].y > canvas.height) obstacles.splice(i, 1);
+    }
+
+    spawnAmmoPickup();
+    for (let i = ammoPickups.length - 1; i >= 0; i--) {
+        ammoPickups[i].y += scrollSpeed;
+        if (player.x < ammoPickups[i].x + ammoPickups[i].width &&
+            player.x + player.width > ammoPickups[i].x &&
+            player.y < ammoPickups[i].y + ammoPickups[i].height &&
+            player.y + player.height > ammoPickups[i].y) {
+                player.packages = Math.min(player.packages + 5, 20); 
+                ammoPickups.splice(i, 1);
+                continue;
+        }
+        if (ammoPickups[i].y > canvas.height) ammoPickups.splice(i, 1);
+    }
+
+    spawnCustomer();
+    for (let i = customers.length - 1; i >= 0; i--) {
+        customers[i].y += scrollSpeed;
+        if (customers[i].hit && customers[i].jumpOffset > -15) {
+            customers[i].jumpOffset -= 1.5;
+        }
+        if (customers[i].y > canvas.height) customers.splice(i, 1);
+    }
+
+    for (let i = thrownPackages.length - 1; i >= 0; i--) {
+        let pkg = thrownPackages[i];
+        pkg.x += pkg.vx;
+        pkg.y += pkg.vy;
+
+        customers.forEach(customer => {
+            if (!customer.hit &&
+                pkg.x > customer.x && pkg.x < customer.x + customer.width &&
+                pkg.y > customer.y - 10 && pkg.y < customer.y + customer.height) {
+                    customer.hit = true;
+                    pkg.active = false;
+                    player.score += 200; 
+            }
+        });
+
+        if (pkg.y < 0 || pkg.x < 0 || pkg.x > canvas.width || !pkg.active) {
+            thrownPackages.splice(i, 1);
+        }
+    }
+}
+
+function draw() {
+    ctx.fillStyle = "#2ed573";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#26af5f";
+    for (let i = 10; i < canvas.height; i += 60) {
+        let yPos = (i + backgroundOffset) % canvas.height;
+        ctx.fillRect(20, yPos, 4, 8);
+        ctx.fillRect(60, (yPos + 30) % canvas.height, 4, 8);
+        ctx.fillRect(roadRight + 30, (yPos + 15) % canvas.height, 4, 8);
+        ctx.fillRect(roadRight + 70, (yPos + 45) % canvas.height, 4, 8);
+    }
+
+    ctx.fillStyle = "#96694c";
+    ctx.fillRect(roadLeft, 0, roadRight - roadLeft, canvas.height);
+
+    roadTexts.forEach(rt => {
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.font = "bold 22px 'Courier New'";
+        ctx.fillStyle = "rgba(70, 40, 20, 0.55)"; 
+        ctx.fillText(rt.text, rt.x, rt.y);
+        ctx.restore();
+    });
+
+    ctx.strokeStyle = "#5d3a21";
+    ctx.lineWidth = 4;
+    ctx.setLineDash([25, 15]);
+    ctx.lineDashOffset = -backgroundOffset;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, 0);
+    ctx.lineTo(canvas.width / 2, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]); 
+
+    trees.forEach(tree => {
+        ctx.fillStyle = "#5d3a21";
+        ctx.fillRect(tree.x - tree.trunkWidth / 2, tree.y + tree.radius - 5, tree.trunkWidth, tree.trunkHeight);
+        ctx.fillStyle = "#1e824c";
+        ctx.beginPath();
+        ctx.arc(tree.x, tree.y, tree.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#26a65b";
+        ctx.beginPath();
+        ctx.arc(tree.x - tree.radius/4, tree.y - tree.radius/4, tree.radius/1.6, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    customers.forEach(person => {
+        let renderY = person.y + person.jumpOffset;
+        let px = person.x;
+        let shirtColor = person.hit ? "#2ecc71" : person.clothColor;
+
+        ctx.fillStyle = "#2c3e50";
+        ctx.fillRect(px + 3, renderY + 24, 6, 14); 
+        ctx.fillRect(px + 11, renderY + 24, 6, 14); 
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(px + 2, renderY + 38, 7, 4);
+        ctx.fillRect(px + 11, renderY + 38, 7, 4);
+        ctx.fillStyle = shirtColor;
+        ctx.fillRect(px, renderY + 12, person.width, 13);
+
+        if (person.hit) {
+            ctx.fillRect(px - 3, renderY + 4, 4, 10);
+            ctx.fillRect(px + person.width - 1, renderY + 4, 4, 10);
+        } else {
+            ctx.fillRect(px - 3, renderY + 12, 4, 10);
+            ctx.fillRect(px + person.width - 1, renderY + 12, 4, 10);
+        }
+        
+        ctx.fillStyle = "#ffdbac";
+        ctx.beginPath();
+        ctx.arc(px + person.width / 2, renderY + 7, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = person.hairColor;
+        ctx.beginPath();
+        ctx.arc(px + person.width / 2, renderY + 4, 6, Math.PI, 0); 
+        ctx.fill();
+    });
+
+    ammoPickups.forEach(pickup => {
+        ctx.fillStyle = "#d35400"; 
+        ctx.fillRect(pickup.x, pickup.y, pickup.width, pickup.height);
+        ctx.strokeStyle = "#e67e22";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pickup.x + 2, pickup.y + 2, pickup.width - 4, pickup.height - 4);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 13px Arial";
+        ctx.fillText("V", pickup.x + 7, pickup.y + 17);
+    });
+
+    obstacles.forEach(obs => {
+        ctx.save();
+        let cx = obs.x + obs.width / 2;
+        let cy = obs.y + obs.height / 2;
+
+        if (obs.type === "buco") {
+            let gradient = ctx.createRadialGradient(cx, cy, obs.width * 0.1, cx, cy, obs.width * 0.5);
+            gradient.addColorStop(0, "#0f0803");  
+            gradient.addColorStop(0.6, "#26150a"); 
+            gradient.addColorStop(1, "#54331b");   
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            let rx = obs.width / 2;
+            let ry = obs.height / 2;
+            for (let a = 0; a < Math.PI * 2; a += 0.3) {
+                let jagged = 1 + Math.sin(a * 6 + obs.seed * 5) * 0.15 + Math.cos(a * 3) * 0.05; 
+                let x = cx + Math.cos(a) * rx * jagged;
+                let y = cy + Math.sin(a) * ry * jagged;
+                if (a === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            for (let n = 0; n < 3; n++) {
+                let xShift = (n * 10 - 10) + Math.sin(obs.seed + n) * 4;
+                let yShift = (n * 5 - 5) + Math.cos(obs.seed * 2 + n) * 3;
+                ctx.save();
+                ctx.translate(cx + xShift, cy + yShift);
+                ctx.rotate((obs.seed * 360 + n * 60) * Math.PI / 180);
+                ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 3.5;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(11, 2); ctx.stroke();
+                ctx.fillStyle = "#242424"; ctx.beginPath(); ctx.rect(-3, -3, 5, 6); ctx.fill();
+                ctx.restore();
+            }
+        }
+        ctx.restore();
+    });
+
+    thrownPackages.forEach(pkg => {
+        ctx.save();
+        ctx.translate(pkg.x, pkg.y);
+        ctx.fillStyle = "#4a121a"; 
+        ctx.fillRect(-pkg.width / 2, -pkg.height / 6, pkg.width, (pkg.height * 4) / 6);
+        ctx.beginPath(); ctx.moveTo(-pkg.width / 2, -pkg.height / 6); ctx.lineTo(-pkg.width / 4, -pkg.height / 3); ctx.lineTo(pkg.width / 4, -pkg.height / 3); ctx.lineTo(pkg.width / 2, -pkg.height / 6); ctx.fill();
+        ctx.fillRect(-pkg.width / 4, -pkg.height / 2, pkg.width / 2, pkg.height / 6);
+        ctx.fillStyle = "#fffdd0"; ctx.fillRect(-pkg.width / 2 + 1, 0, pkg.width - 2, pkg.height / 3);
+        ctx.restore();
+    });
+
+    if (player.lives > 0) {
+        let cx = player.x + player.width / 2; 
+        ctx.fillStyle = "#bdc3c7"; ctx.fillRect(player.x + 10, player.y, 10, player.height);
+        ctx.fillStyle = "#111"; ctx.fillRect(cx - 3, player.y - 6, 6, 12); ctx.fillRect(cx - 3, player.y + player.height - 6, 6, 12);       
+        ctx.fillStyle = "#e67e22"; ctx.fillRect(player.x + 4, player.y + 18, 11, 22);
+        ctx.fillStyle = "#111111"; ctx.fillRect(player.x + 15, player.y + 18, 11, 22);
+        ctx.fillStyle = "#ffdbac"; ctx.beginPath(); ctx.arc(cx, player.y + 16, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#8a5229"; ctx.beginPath(); ctx.arc(cx, player.y + 13, 7, Math.PI, 0); ctx.fill();
+    }
+
+    ctx.fillStyle = "#fff"; 
+    ctx.font = "bold 15px 'Courier New'";
+    ctx.fillText(`PILOTA: ${currentPlayerName.toUpperCase()}`, 10, 25);
+    ctx.fillText(`SCORE: ${player.score}`, 10, 48);
+    ctx.fillText(`LIVELLO: ${currentLevel}`, 10, 71);
+    ctx.fillText(`BOTTIGLIE: ${player.packages}`, 10, 94);
+    
+    ctx.fillText(`VITE: ${"🚲".repeat(player.lives)}`, canvas.width - 150, 25);
+
+    if (levelUpTimer > 0) {
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 3);
+        ctx.scale(levelUpScale, levelUpScale);
+        ctx.font = "bold 32px 'Courier New'"; ctx.textAlign = "center";
+        ctx.fillStyle = (Math.floor(levelUpTimer / 4) % 2 === 0) ? "#e67e22" : "#fff";
+        ctx.fillText(`LIVELLO ${currentLevel} !`, 0, 0);
+        ctx.restore();
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
